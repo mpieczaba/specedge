@@ -11,6 +11,7 @@ from rich.table import Table
 from metric import (  # noqa: F401
     A100_80_GPU_COST,
     A100_GPU_COST,
+    H100_94_GPU_COST,
     MATHEMATICAL_REASONING_OFFSET,
     QUESTION_REASONING_OFFSET,
     RETRIEVAL_OFFSET,
@@ -527,15 +528,20 @@ if __name__ == "__main__":
         default="overall",
     )
     parser.add_argument("--plain", action="store_true", help="Use plain text data")
-    parser.add_argument("--gpu", default="A100_80", type=str, choices=["A100_80", "A100_40"])
+    parser.add_argument(
+        "--gpu", default="A100_80", type=str, choices=["A100_80", "A100_40"]
+    )
     args = parser.parse_args()
-    
+
     if args.gpu == "A100_80":
         print("Using A100_80 GPU")
         GPU_COST = A100_80_GPU_COST
     elif args.gpu == "A100_40":
         print("Using A100_40 GPU")
         GPU_COST = A100_GPU_COST
+    elif args.gpu == "H100_94":
+        print("Using H100_94 GPU")
+        GPU_COST = H100_94_GPU_COST
     else:
         raise ValueError("Invalid GPU option")
 

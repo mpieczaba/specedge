@@ -7,7 +7,7 @@ import polars as pl
 from rich.console import Console
 from rich.table import Table
 
-from metric import A100_80_GPU_COST, A100_GPU_COST
+from metric import A100_80_GPU_COST, A100_GPU_COST, H100_94_GPU_COST
 
 
 def main(data_folder_path: Path):
@@ -261,8 +261,8 @@ def pprint(df: pl.DataFrame):
         "",
     )
     # Calculate cost per 1M tokens, handling division by zero
-    total_cost = overall_metrics['cost']['server']
-    total_tokens = overall_metrics['tokens']['generated']
+    total_cost = overall_metrics["cost"]["server"]
+    total_tokens = overall_metrics["tokens"]["generated"]
     cost_per_1m_tokens = total_cost / total_tokens * 1_000_000
 
     overall_table.add_row(
@@ -354,15 +354,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--data", help="Path to the data file")
     parser.add_argument("--plain", action="store_true", help="Use plain text data")
-    parser.add_argument("--gpu", default="A100_80", type=str, choices=["A100_80", "A100_40"])
+    parser.add_argument(
+        "--gpu", default="A100_80", type=str, choices=["A100_80", "A100_40", "H100_94"]
+    )
     args = parser.parse_args()
-    
+
     if args.gpu == "A100_80":
         print("Using A100_80 GPU")
         GPU_COST = A100_80_GPU_COST
     elif args.gpu == "A100_40":
         print("Using A100_40 GPU")
         GPU_COST = A100_GPU_COST
+    elif args.gpu == "H100_94":
+        print("Using H100_94 GPU")
+        GPU_COST = H100_94_GPU_COST
     else:
         raise ValueError("Invalid GPU option")
 
