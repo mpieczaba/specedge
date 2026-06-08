@@ -529,7 +529,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--plain", action="store_true", help="Use plain text data")
     parser.add_argument(
-        "--gpu", default="A100_80", type=str, choices=["A100_80", "A100_40"]
+        "--gpu", default="A100_80", type=str, choices=["A100_80", "A100_40", "H100_94"]
     )
     args = parser.parse_args()
 

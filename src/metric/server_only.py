@@ -7,7 +7,16 @@ import polars as pl
 from rich.console import Console
 from rich.table import Table
 
-from metric import A100_80_GPU_COST, A100_GPU_COST, H100_94_GPU_COST
+from metric import (  # noqa: F401
+    A100_80_GPU_COST,
+    A100_GPU_COST,
+    H100_94_GPU_COST,
+    MATHEMATICAL_REASONING_OFFSET,
+    QUESTION_REASONING_OFFSET,
+    RETRIEVAL_OFFSET,
+    SUMMARIZATION_OFFSET,
+    TRANSLATION_OFFSET,
+)
 
 
 def main(data_folder_path: Path):
@@ -32,6 +41,38 @@ def main(data_folder_path: Path):
     df = pl.json_normalize(raw_data).drop("timestamp", strict=False)
 
     return df
+
+
+def filter_subset(df: pl.DataFrame, subset: str) -> pl.DataFrame:
+    if subset == "overall" or "req_idx" not in df.columns:
+        return df
+    match subset:
+        case "multi_turn":
+            return df.filter(pl.col("req_idx") < TRANSLATION_OFFSET)
+        case "translation":
+            return df.filter(
+                (TRANSLATION_OFFSET <= pl.col("req_idx"))
+                & (pl.col("req_idx") < SUMMARIZATION_OFFSET)
+            )
+        case "summarization":
+            return df.filter(
+                (SUMMARIZATION_OFFSET <= pl.col("req_idx"))
+                & (pl.col("req_idx") < QUESTION_REASONING_OFFSET)
+            )
+        case "question_answering":
+            return df.filter(
+                (QUESTION_REASONING_OFFSET <= pl.col("req_idx"))
+                & (pl.col("req_idx") < MATHEMATICAL_REASONING_OFFSET)
+            )
+        case "mathematical_reasoning":
+            return df.filter(
+                (MATHEMATICAL_REASONING_OFFSET <= pl.col("req_idx"))
+                & (pl.col("req_idx") < RETRIEVAL_OFFSET)
+            )
+        case "retrieval":
+            return df.filter(RETRIEVAL_OFFSET <= pl.col("req_idx"))
+        case _:
+            raise ValueError(f"Unknown subset: {subset}")
 
 
 def overall_analysis(df: pl.DataFrame):
@@ -353,6 +394,21 @@ def plain_text_print(df: pl.DataFrame):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--data", help="Path to the data file")
+    parser.add_argument(
+        "-s",
+        "--subset",
+        type=str,
+        choices=[
+            "multi_turn",
+            "translation",
+            "summarization",
+            "question_answering",
+            "mathematical_reasoning",
+            "retrieval",
+            "overall",
+        ],
+        default="overall",
+    )
     parser.add_argument("--plain", action="store_true", help="Use plain text data")
     parser.add_argument(
         "--gpu", default="A100_80", type=str, choices=["A100_80", "A100_40", "H100_94"]
@@ -376,7 +432,7 @@ if __name__ == "__main__":
     if not data_folder_path.is_dir():
         raise ValueError(f"Data path '{data_folder_path}' is not a valid directory")
 
-    df = main(data_folder_path)
+    df = filter_subset(main(data_folder_path), args.subset)
 
     if args.plain:
         plain_text_print(df)
