@@ -87,12 +87,24 @@ class SpecExecBatchServer(specedge_pb2_grpc.SpecEdgeServiceServicer):
     async def Validate(self, request, context):
         self._logger.info("Received request: %s", request.client_idx)
         fut = asyncio.Future()
+        client_idx = request.client_idx
 
         with self._resp_lock:
-            self._resp_futures[request.client_idx] = fut
+            self._resp_futures[client_idx] = fut
 
         self._recv_queue.put(request.SerializeToString())
-        selection, prefill_cnt = await asyncio.wait_for(fut, timeout=5.0)
+        try:
+            selection, prefill_cnt = await asyncio.wait_for(fut, timeout=5.0)
+        except asyncio.TimeoutError:
+            with self._resp_lock:
+                if self._resp_futures.get(client_idx) is fut:
+                    del self._resp_futures[client_idx]
+            raise
+        finally:
+            with self._resp_lock:
+                if self._resp_futures.get(client_idx) is fut:
+                    del self._resp_futures[client_idx]
+
         return specedge_pb2.ValidateResponse(selection=selection, prefill=prefill_cnt)
 
     def _init_inference_loop(self):
