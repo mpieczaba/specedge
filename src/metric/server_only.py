@@ -21,6 +21,18 @@ from metric import (  # noqa: F401
 GPU_COST = A100_80_GPU_COST
 
 
+def _fmt_num(value, precision: int = 3) -> str:
+    if value is None:
+        return ""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if number != number:
+        return ""
+    return f"{number:.{precision}f}"
+
+
 def main(data_folder_path: Path):
     # Find all client files and the server file
     file = data_folder_path / "server_only.jsonl"
@@ -336,17 +348,17 @@ def plain_text_print(df: pl.DataFrame):
 
     values = [
         # Client Draft Latency (ms)
-        f"{metrics['draft']['end_to_end']['prefill'][0]:.3f}",  # prefill_mean
-        f"{metrics['draft']['end_to_end']['prefill'][1]:.3f}",  # prefill_std
-        f"{metrics['draft']['end_to_end']['non-prefill'][0]:.3f}",  # non-prefill_mean
-        f"{metrics['draft']['end_to_end']['non-prefill'][1]:.3f}",  # non-prefill_std
+        _fmt_num(metrics["draft"]["end_to_end"]["prefill"][0]),
+        _fmt_num(metrics["draft"]["end_to_end"]["prefill"][1]),
+        _fmt_num(metrics["draft"]["end_to_end"]["non-prefill"][0]),
+        _fmt_num(metrics["draft"]["end_to_end"]["non-prefill"][1]),
         "",  # proactive_mean
         "",  # proactive_std
         # Client Target Latency (ms)
-        f"{metrics['target']['end_to_end']['prefill'][0]:.3f}",  # prefill_mean
-        f"{metrics['target']['end_to_end']['prefill'][1]:.3f}",  # prefill_std
-        f"{metrics['target']['end_to_end']['non-prefill'][0]:.3f}",  # non-prefill_mean
-        f"{metrics['target']['end_to_end']['non-prefill'][1]:.3f}",  # non-prefill_std
+        _fmt_num(metrics["target"]["end_to_end"]["prefill"][0]),
+        _fmt_num(metrics["target"]["end_to_end"]["prefill"][1]),
+        _fmt_num(metrics["target"]["end_to_end"]["non-prefill"][0]),
+        _fmt_num(metrics["target"]["end_to_end"]["non-prefill"][1]),
         "",  # proactive_mean
         "",  # proactive_std
         # Server Target Latency (ms)
@@ -355,29 +367,29 @@ def plain_text_print(df: pl.DataFrame):
         "",  # non-prefill_mean
         "",  # non-prefill_std
         # Client Overall Latency (ms)
-        f"{metrics['overall']['prefill'][0]:.3f}",  # prefill_mean
-        f"{metrics['overall']['prefill'][1]:.3f}",  # prefill_std
-        f"{metrics['overall']['non-prefill'][0]:.3f}",  # non-prefill_mean
-        f"{metrics['overall']['non-prefill'][1]:.3f}",  # non-prefill_std
+        _fmt_num(metrics["overall"]["prefill"][0]),
+        _fmt_num(metrics["overall"]["prefill"][1]),
+        _fmt_num(metrics["overall"]["non-prefill"][0]),
+        _fmt_num(metrics["overall"]["non-prefill"][1]),
         "",  # proactive_mean
         "",  # proactive_std
         # Proactive Ratio (%)
         "",  # proactive ratio
         # Accepted Tokens per step (tokens)
-        f"{metrics['tokens']['accepted'][0]:.2f}",
-        f"{metrics['tokens']['accepted'][1]:.2f}",
+        _fmt_num(metrics["tokens"]["accepted"][0], 2),
+        _fmt_num(metrics["tokens"]["accepted"][1], 2),
         # Client Inter-token Latency (non-prefill) (ms/tok)
-        f"{metrics['latency']['value']:.3f}",
+        _fmt_num(metrics["latency"]["value"]),
         # Server Total Running Time (s)
-        f"{metrics['running_time']['server'] / 1000:.3f}",
+        _fmt_num(metrics["running_time"]["server"] / 1000),
         # Server Total Cost (Numeric Value)
-        f"{metrics['cost']['server']:.3f}",
+        _fmt_num(metrics["cost"]["server"]),
         # Client Total Processing Time (s)
         "",  # client processing time
         # Client Total Cost (Numeric Value)
         "",  # client cost
         # Total Accepted Tokens (tokens)
-        f"{metrics['tokens']['generated']}",
+        str(metrics["tokens"]["generated"]),
     ]
 
     # Calculate Overall Cost per 1M Accepted Tokens and append
@@ -388,7 +400,7 @@ def plain_text_print(df: pl.DataFrame):
         if total_generated_tokens_val > 0
         else 0.0
     )
-    values.append(f"{cost_per_1m_tokens_val:.3f}")
+    values.append(_fmt_num(cost_per_1m_tokens_val))
 
     print("\t".join(values))
 
@@ -435,6 +447,10 @@ if __name__ == "__main__":
         raise ValueError(f"Data path '{data_folder_path}' is not a valid directory")
 
     df = filter_subset(main(data_folder_path), args.subset)
+
+    if df.is_empty() and args.plain:
+        print("\t".join([""] * 24))
+        sys.exit(0)
 
     if args.plain:
         plain_text_print(df)

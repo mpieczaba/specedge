@@ -23,9 +23,21 @@ from metric import (  # noqa: F401
 GPU_COST = A100_80_GPU_COST
 
 
+def _fmt_num(value, precision: int = 3) -> str:
+    if value is None:
+        return ""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if number != number:
+        return ""
+    return f"{number:.{precision}f}"
+
+
 def load_data(data_folder_path: Path):
     # Find all client files and the server file
-    client_files = list(data_folder_path.glob("client_*.jsonl"))
+    client_files = sorted(data_folder_path.glob("client_[0-9]*.jsonl"))
     server_file = data_folder_path / "server.jsonl"
 
     if not client_files:
@@ -75,6 +87,36 @@ def load_data(data_folder_path: Path):
     return client_df, server_df
 
 
+def filter_client_subset(client_df: pl.DataFrame, subset: str) -> pl.DataFrame:
+    match subset:
+        case "multi_turn":
+            return client_df.filter(pl.col("req_idx") < TRANSLATION_OFFSET)
+        case "translation":
+            return client_df.filter(
+                (TRANSLATION_OFFSET <= pl.col("req_idx"))
+                & (pl.col("req_idx") < SUMMARIZATION_OFFSET)
+            )
+        case "summarization":
+            return client_df.filter(
+                (SUMMARIZATION_OFFSET <= pl.col("req_idx"))
+                & (pl.col("req_idx") < QUESTION_REASONING_OFFSET)
+            )
+        case "question_answering":
+            return client_df.filter(
+                (QUESTION_REASONING_OFFSET <= pl.col("req_idx"))
+                & (pl.col("req_idx") < MATHEMATICAL_REASONING_OFFSET)
+            )
+        case "mathematical_reasoning":
+            return client_df.filter(
+                (MATHEMATICAL_REASONING_OFFSET <= pl.col("req_idx"))
+                & (pl.col("req_idx") < RETRIEVAL_OFFSET)
+            )
+        case "retrieval":
+            return client_df.filter(RETRIEVAL_OFFSET <= pl.col("req_idx"))
+        case _:
+            return client_df
+
+
 def overall_analysis(server_df: pl.DataFrame, client_df: pl.DataFrame, subset: str):
     server_start_time = datetime.fromisoformat(
         server_df.select(pl.first("timestamp")).item()
@@ -83,31 +125,7 @@ def overall_analysis(server_df: pl.DataFrame, client_df: pl.DataFrame, subset: s
         server_df.select(pl.last("timestamp")).item()
     )
 
-    match subset:
-        case "multi_turn":
-            client_df = client_df.filter(pl.col("req_idx") < TRANSLATION_OFFSET)
-        case "translation":
-            client_df = client_df.filter(
-                (TRANSLATION_OFFSET <= pl.col("req_idx"))
-                & (pl.col("req_idx") < SUMMARIZATION_OFFSET)
-            )
-        case "summarization":
-            client_df = client_df.filter(
-                (SUMMARIZATION_OFFSET <= pl.col("req_idx"))
-                & (pl.col("req_idx") < QUESTION_REASONING_OFFSET)
-            )
-        case "question_answering":
-            client_df = client_df.filter(
-                (QUESTION_REASONING_OFFSET <= pl.col("req_idx"))
-                & (pl.col("req_idx") < MATHEMATICAL_REASONING_OFFSET)
-            )
-        case "mathematical_reasoning":
-            client_df = client_df.filter(
-                (MATHEMATICAL_REASONING_OFFSET <= pl.col("req_idx"))
-                & (pl.col("req_idx") < RETRIEVAL_OFFSET)
-            )
-        case "retrieval":
-            client_df = client_df.filter(RETRIEVAL_OFFSET <= pl.col("req_idx"))
+    client_df = filter_client_subset(client_df, subset)
     server_time = server_end_time - server_start_time
 
     return {
@@ -454,48 +472,48 @@ def plain_text_print(client_df: pl.DataFrame, server_df: pl.DataFrame, subset: s
 
     values = [
         # Client Draft Latency (ms)
-        f"{metrics['draft']['end_to_end']['prefill'][0]:.3f}",  # prefill_mean
-        f"{metrics['draft']['end_to_end']['prefill'][1]:.3f}",  # prefill_std
-        f"{metrics['draft']['end_to_end']['non-prefill'][0]:.3f}",  # non-prefill_mean
-        f"{metrics['draft']['end_to_end']['non-prefill'][1]:.3f}",  # non-prefill_std
-        f"{metrics['draft']['end_to_end']['proactive'][0]:.3f}",  # proactive_mean
-        f"{metrics['draft']['end_to_end']['proactive'][1]:.3f}",  # proactive_std
+        _fmt_num(metrics["draft"]["end_to_end"]["prefill"][0]),
+        _fmt_num(metrics["draft"]["end_to_end"]["prefill"][1]),
+        _fmt_num(metrics["draft"]["end_to_end"]["non-prefill"][0]),
+        _fmt_num(metrics["draft"]["end_to_end"]["non-prefill"][1]),
+        _fmt_num(metrics["draft"]["end_to_end"]["proactive"][0]),
+        _fmt_num(metrics["draft"]["end_to_end"]["proactive"][1]),
         # Client Target Latency (ms)
-        f"{metrics['target']['end_to_end']['prefill'][0]:.3f}",  # prefill_mean
-        f"{metrics['target']['end_to_end']['prefill'][1]:.3f}",  # prefill_std
-        f"{metrics['target']['end_to_end']['non-prefill'][0]:.3f}",  # non-prefill_mean
-        f"{metrics['target']['end_to_end']['non-prefill'][1]:.3f}",  # non-prefill_std
-        f"{metrics['target']['end_to_end']['proactive'][0]:.3f}",  # proactive_mean
-        f"{metrics['target']['end_to_end']['proactive'][1]:.3f}",  # proactive_std
+        _fmt_num(metrics["target"]["end_to_end"]["prefill"][0]),
+        _fmt_num(metrics["target"]["end_to_end"]["prefill"][1]),
+        _fmt_num(metrics["target"]["end_to_end"]["non-prefill"][0]),
+        _fmt_num(metrics["target"]["end_to_end"]["non-prefill"][1]),
+        _fmt_num(metrics["target"]["end_to_end"]["proactive"][0]),
+        _fmt_num(metrics["target"]["end_to_end"]["proactive"][1]),
         # Server Target Latency (ms)
-        f"{metrics['target']['server']['prefill'][0]:.3f}",  # prefill_mean
-        f"{metrics['target']['server']['prefill'][1]:.3f}",  # prefill_std
-        f"{metrics['target']['server']['non-prefill'][0]:.3f}",  # non-prefill_mean
-        f"{metrics['target']['server']['non-prefill'][1]:.3f}",  # non-prefill_std
+        _fmt_num(metrics["target"]["server"]["prefill"][0]),
+        _fmt_num(metrics["target"]["server"]["prefill"][1]),
+        _fmt_num(metrics["target"]["server"]["non-prefill"][0]),
+        _fmt_num(metrics["target"]["server"]["non-prefill"][1]),
         # Client Overall Latency (ms)
-        f"{metrics['overall']['prefill'][0]:.3f}",  # prefill_mean
-        f"{metrics['overall']['prefill'][1]:.3f}",  # prefill_std
-        f"{metrics['overall']['non-prefill'][0]:.3f}",  # non-prefill_mean
-        f"{metrics['overall']['non-prefill'][1]:.3f}",  # non-prefill_std
-        f"{metrics['overall']['proactive'][0]:.3f}",  # proactive_mean
-        f"{metrics['overall']['proactive'][1]:.3f}",  # proactive_std
+        _fmt_num(metrics["overall"]["prefill"][0]),
+        _fmt_num(metrics["overall"]["prefill"][1]),
+        _fmt_num(metrics["overall"]["non-prefill"][0]),
+        _fmt_num(metrics["overall"]["non-prefill"][1]),
+        _fmt_num(metrics["overall"]["proactive"][0]),
+        _fmt_num(metrics["overall"]["proactive"][1]),
         # Proactive Ratio (%)
-        f"{metrics['proactive']['ratio'] * 100:.3f}",
+        _fmt_num(metrics["proactive"]["ratio"] * 100),
         # Accepted Tokens per step (tokens): mean, std
-        f"{metrics['tokens']['accepted'][0]:.2f}",  # mean
-        f"{metrics['tokens']['accepted'][1]:.2f}",  # std
+        _fmt_num(metrics["tokens"]["accepted"][0], 2),
+        _fmt_num(metrics["tokens"]["accepted"][1], 2),
         # Client Inter-token Latency (non-prefill) (ms/tok)
-        f"{metrics['latency']['value']:.3f}",
+        _fmt_num(metrics["latency"]["value"]),
         # Server Total Running Time (s)
-        f"{metrics['running_time']['server']:.3f}",
+        _fmt_num(metrics["running_time"]["server"]),
         # Server Total Cost (Numeric Value)
-        f"{metrics['cost']['server']:.3f}",
+        _fmt_num(metrics["cost"]["server"]),
         # Client Total Processing Time (s)
-        f"{metrics['running_time']['edge'] / 1_000:.3f}",
+        _fmt_num(metrics["running_time"]["edge"] / 1_000),
         # Client Total Cost (Numeric Value)
-        f"{metrics['cost']['edge']:.3f}",
+        _fmt_num(metrics["cost"]["edge"]),
         # Total Accepted Tokens (tokens)
-        f"{metrics['tokens']['generated']}",
+        str(metrics["tokens"]["generated"]),
     ]
 
     # Calculate Overall Cost per 1M Accepted Tokens and append
@@ -506,7 +524,7 @@ def plain_text_print(client_df: pl.DataFrame, server_df: pl.DataFrame, subset: s
         if total_generated_tokens_val > 0
         else 0.0
     )
-    values.append(f"{cost_per_1m_tokens_val:.3f}")
+    values.append(_fmt_num(cost_per_1m_tokens_val))
 
     print("\t".join(values))
 
@@ -554,6 +572,10 @@ if __name__ == "__main__":
         raise ValueError(f"Data path '{data_folder_path}' is not a valid directory")
 
     client_df, server_df = load_data(data_folder_path)
+
+    if filter_client_subset(client_df, subset).is_empty() and args.plain:
+        print("\t".join([""] * 24))
+        sys.exit(0)
 
     if args.plain:
         plain_text_print(client_df, server_df, subset)

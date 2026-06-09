@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -39,8 +40,26 @@ def _parse_plain_output(stdout: str) -> list[str]:
     return []
 
 
+def _metric_env(project_root: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    src = str(project_root / "src")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = src if not existing else f"{src}{os.pathsep}{existing}"
+    return env
+
+
+def _format_metric_error(result: subprocess.CompletedProcess[str]) -> str:
+    parts = [f"exit={result.returncode}"]
+    if result.stderr and result.stderr.strip():
+        parts.append(result.stderr.strip())
+    if result.stdout and result.stdout.strip():
+        parts.append(result.stdout.strip())
+    return " | ".join(parts)[:500]
+
+
 def _run_metric(
     project_root: Path,
+    python_exe: str,
     method: str,
     data_dir: Path,
     subset: str,
@@ -49,7 +68,7 @@ def _run_metric(
     if method == "server_only":
         script = project_root / "src" / "metric" / "server_only.py"
         cmd = [
-            sys.executable,
+            python_exe,
             str(script),
             "-d",
             str(data_dir),
@@ -62,7 +81,7 @@ def _run_metric(
     else:
         script = project_root / "src" / "metric" / "specedge.py"
         cmd = [
-            sys.executable,
+            python_exe,
             str(script),
             "-d",
             str(data_dir),
@@ -73,10 +92,16 @@ def _run_metric(
             "--plain",
         ]
 
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=project_root,
+        env=_metric_env(project_root),
+    )
     if result.returncode != 0:
-        err = (result.stderr or result.stdout or "unknown error").strip()
-        return {"error": err.replace("\n", " | ")[:500]}
+        return {"error": _format_metric_error(result).replace("\n", " | ")}
 
     parts = _parse_plain_output(result.stdout)
     if not parts:
@@ -137,7 +162,9 @@ def _data_dir(run_dir: Path, meta: dict) -> Path | None:
     return None
 
 
-def collect_run(project_root: Path, run_dir: Path, gpu: str) -> list[dict]:
+def collect_run(
+    project_root: Path, run_dir: Path, gpu: str, python_exe: str
+) -> list[dict]:
     meta_path = run_dir / "run_meta.json"
     if not meta_path.exists():
         return []
@@ -160,7 +187,9 @@ def collect_run(project_root: Path, run_dir: Path, gpu: str) -> list[dict]:
     subsets = SUBSETS
 
     for subset in subsets:
-        metrics = _run_metric(project_root, method, data_dir, subset, gpu)
+        metrics = _run_metric(
+            project_root, python_exe, method, data_dir, subset, gpu
+        )
         row = {
             "run_id": meta["run_id"],
             "method": meta["method"],
@@ -273,16 +302,22 @@ def main() -> None:
     parser.add_argument("--project-root", required=True)
     parser.add_argument("--summary-dir", required=True)
     parser.add_argument("--gpu", default="H100_94")
+    parser.add_argument(
+        "--python",
+        default=sys.executable,
+        help="Python interpreter with project dependencies (polars, etc.)",
+    )
     args = parser.parse_args()
 
     result_root = Path(args.result_root)
     project_root = Path(args.project_root)
+    python_exe = args.python
     rows: list[dict] = []
 
     for run_dir in sorted(result_root.iterdir()):
         if not run_dir.is_dir():
             continue
-        rows.extend(collect_run(project_root, run_dir, args.gpu))
+        rows.extend(collect_run(project_root, run_dir, args.gpu, python_exe))
 
     write_summary(rows, Path(args.summary_dir))
 

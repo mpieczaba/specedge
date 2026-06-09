@@ -131,5 +131,11 @@ wcss_check_project() {
         return 1
     fi
 
+    if ! "${WCSS_PYTHON}" -c "import polars" 2>/dev/null; then
+        echo "ERROR: ${WCSS_PYTHON} nie ma modułu polars (wymagany przez collect)." >&2
+        echo "Uruchom: cd ~/specedge && uv sync" >&2
+        return 1
+    fi
+
     return 0
 }

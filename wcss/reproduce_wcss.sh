@@ -105,7 +105,8 @@ collect_results() {
         --result-root "${WCSS_RESULT_ROOT}" \
         --project-root "${WCSS_SPECEDGE_ROOT}" \
         --summary-dir "${WCSS_SUMMARY_DIR}" \
-        --gpu "${WCSS_GPU_METRIC}"
+        --gpu "${WCSS_GPU_METRIC}" \
+        --python "${WCSS_PYTHON}"
 }
 
 show_status() {
