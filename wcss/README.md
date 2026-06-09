@@ -4,10 +4,21 @@ Skrypty do odtworzenia wyników z artykułu (fazy 0–3) na klastrze LEM.
 
 ## Wymagania
 
-- Projekt w `~/specedge` z działającym `.venv` (`uv sync`)
+- Projekt w `~/specedge` z działającym `.venv` (patrz **Setup venv** poniżej)
 - Usługa SLURM: `hpc-madeyski-1742229651`
 - Modele HuggingFace w cache Lustre (domyślnie `.../specedge_models`)
 - **Brak SSH** — edge uruchamiany lokalnie (`wcss/lib/client_local.py`)
+
+## Setup venv (jednorazowo na ui.wcss.pl)
+
+```bash
+cd ~/specedge
+uv sync
+make -C wcss check    # powinno wypisać: OK: WCSS_PYTHON=.../specedge/.venv/bin/python3
+```
+
+Jeśli `uv` nie jest dostępne, użyj modułów WCSS (`module avail Python`) lub wskaż interpreter ręcznie:
+`export WCSS_PYTHON=/ścieżka/do/python3`
 
 ## Szybki start
 
@@ -16,6 +27,7 @@ cd ~/specedge
 
 # Makefile (zalecane)
 make -C wcss help
+make -C wcss check
 make -C wcss setup
 make -C wcss all           # ★ wszystkie fazy (0, 1-14b, 2, 3, 1-32b) → SLURM
 make -C wcss collect       # po zakończeniu jobów

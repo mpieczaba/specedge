@@ -7,7 +7,7 @@
 
 REPRO := ./reproduce_wcss.sh
 
-.PHONY: help setup status collect finish \
+.PHONY: help setup check status collect finish \
 	phase0 phase1-14b phase1-32b phase2 phase3 \
 	list list-all list-phase0 list-phase1-14b list-phase1-32b list-phase2 list-phase3 \
 	core-14b all-14b all
@@ -20,6 +20,7 @@ help:
 	@echo "  finish         collect (alias)"
 	@echo ""
 	@echo "  setup          chmod +x skryptów (jednorazowo)"
+	@echo "  check          sprawdź Python/venv przed submitowaniem jobów"
 	@echo "  status         kolejka SLURM (squeue)"
 	@echo ""
 	@echo "  phase0         smoke test (1 job)"
@@ -39,6 +40,9 @@ help:
 
 setup:
 	chmod +x $(REPRO) lib/run_in_job.sh
+
+check: setup
+	@bash -c 'source lib/common.sh && wcss_check_project && echo "OK: WCSS_PYTHON=$$WCSS_PYTHON"'
 
 # Wszystkie testy reprodukcyjne — submit 14 jobów SLURM (fazy 0–3 + 32B)
 all: setup

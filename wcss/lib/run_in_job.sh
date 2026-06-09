@@ -10,13 +10,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 source "${SCRIPT_DIR}/common.sh"
 
-PYTHON="${WCSS_SPECEDGE_ROOT}/.venv/bin/python3"
-METHOD=$("${PYTHON}" -c "import json,sys; print(json.load(open(sys.argv[1]))['method'])" "${RUN_META}")
-CONFIG=$("${PYTHON}" -c "import json,sys; print(json.load(open(sys.argv[1]))['config_path'])" "${RUN_META}")
-RUN_ID=$("${PYTHON}" -c "import json,sys; print(json.load(open(sys.argv[1]))['run_id'])" "${RUN_META}")
+wcss_check_project
+
+METHOD=$("${WCSS_PYTHON}" -c "import json,sys; print(json.load(open(sys.argv[1]))['method'])" "${RUN_META}")
+CONFIG=$("${WCSS_PYTHON}" -c "import json,sys; print(json.load(open(sys.argv[1]))['config_path'])" "${RUN_META}")
+RUN_ID=$("${WCSS_PYTHON}" -c "import json,sys; print(json.load(open(sys.argv[1]))['run_id'])" "${RUN_META}")
 
 cd "${WCSS_SPECEDGE_ROOT}"
-source .venv/bin/activate
 
 export HF_HOME="${WCSS_HF_HOME}"
 export XDG_CACHE_HOME="${WCSS_REPRO_ROOT}/xdg_cache"
@@ -34,7 +34,7 @@ wait_for_port() {
     local retries=120
     local i
     for ((i = 1; i <= retries; i++)); do
-        if "${PYTHON}" - <<PY
+        if "${WCSS_PYTHON}" - <<PY
 import socket, sys
 s = socket.socket()
 s.settimeout(1)
@@ -56,7 +56,7 @@ PY
     return 1
 }
 
-RESULT_DIR=$("${PYTHON}" -c "import json,sys; print(json.load(open(sys.argv[1]))['result_dir'])" "${RUN_META}")
+RESULT_DIR=$("${WCSS_PYTHON}" -c "import json,sys; print(json.load(open(sys.argv[1]))['result_dir'])" "${RUN_META}")
 mkdir -p "${RESULT_DIR}"
 
 {
@@ -78,7 +78,7 @@ case "${METHOD}" in
         trap 'kill ${SERVER_PID} 2>/dev/null || true' EXIT
 
         wait_for_port 8000
-        "${PYTHON}" "${SCRIPT_DIR}/client_local.py" --config "${CONFIG}"
+        "${WCSS_PYTHON}" "${SCRIPT_DIR}/client_local.py" --config "${CONFIG}"
         CLIENT_RC=$?
 
         kill "${SERVER_PID}" 2>/dev/null || true

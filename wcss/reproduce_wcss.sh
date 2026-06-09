@@ -79,14 +79,14 @@ run_phase() {
         run_id=$(basename "$(dirname "${config_path}")")
         local run_meta="${WCSS_CONFIG_DIR}/${run_id}/run_meta.json"
         local gpus
-        gpus=$("${WCSS_SPECEDGE_ROOT}/.venv/bin/python3" -c "import json; print(json.load(open('${run_meta}'))['gpus'])")
+        gpus=$("${WCSS_PYTHON}" -c "import json; print(json.load(open('${run_meta}'))['gpus'])")
 
         mkdir -p "${WCSS_RESULT_ROOT}/${run_id}"
         cp "${config_path}" "${WCSS_RESULT_ROOT}/${run_id}/config.yaml"
         cp "${run_meta}" "${WCSS_RESULT_ROOT}/${run_id}/run_meta.json"
 
         submit_job "${run_meta}" "${gpus}" "${time_limit}" "${phase}"
-    done < <("${WCSS_SPECEDGE_ROOT}/.venv/bin/python3" "${LIB_DIR}/generate_config.py" \
+    done < <("${WCSS_PYTHON}" "${LIB_DIR}/generate_config.py" \
         --phase "${phase}" \
         --result-root "${WCSS_RESULT_ROOT}" \
         --config-dir "${WCSS_CONFIG_DIR}" \
@@ -101,10 +101,7 @@ collect_results() {
     wcss_ensure_dirs
     wcss_check_project
 
-    cd "${WCSS_SPECEDGE_ROOT}"
-    source .venv/bin/activate
-
-    python3 "${LIB_DIR}/collect_results.py" \
+    "${WCSS_PYTHON}" "${LIB_DIR}/collect_results.py" \
         --result-root "${WCSS_RESULT_ROOT}" \
         --project-root "${WCSS_SPECEDGE_ROOT}" \
         --summary-dir "${WCSS_SUMMARY_DIR}" \
@@ -117,7 +114,8 @@ show_status() {
 
 list_phase() {
     local phase="$1"
-    "${WCSS_SPECEDGE_ROOT}/.venv/bin/python3" "${LIB_DIR}/generate_config.py" \
+    wcss_check_project || return 1
+    "${WCSS_PYTHON}" "${LIB_DIR}/generate_config.py" \
         --phase "${phase}" \
         --result-root "${WCSS_RESULT_ROOT}" \
         --config-dir "${WCSS_CONFIG_DIR}" \

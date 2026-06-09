@@ -266,8 +266,10 @@ def _load_config(config_file: Path):
     os.environ["SPECEDGE_SAMPLE_REQ_CNT"] = str(sample_req_cnt)
 
     os.environ["SPECEDGE_REQ_IDX"] = "0"
-    os.environ["SPECEDGE_BATCH_TYPE"] = ""
-    os.environ["SPECEDGE_REQ_OFFSET"] = "0"
+    os.environ["SPECEDGE_BATCH_TYPE"] = "static"
+    os.environ["SPECEDGE_REQ_OFFSET"] = str(config_yaml["client"].get("req_offset", 0))
+    # server_only does not use gRPC prefill cache; required by SpecEdgeBatchServerConfig
+    os.environ["SPECEDGE_CACHE_PREFILL"] = "False"
 
 
 if __name__ == "__main__":

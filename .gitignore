@@ -18,3 +18,4 @@ config/*
 !config/server_only.example.yaml
 !config/specedge.example.yaml
 .DS_Store
+arXiv-2505.17052v2

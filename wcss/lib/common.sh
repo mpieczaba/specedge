@@ -80,9 +80,56 @@ wcss_time_limit_for_phase() {
     esac
 }
 
+wcss_print_venv_help() {
+    cat >&2 <<EOF
+ERROR: Nie znaleziono Pythona projektu SpecEdge.
+
+Krok 1 — utwórz środowisko na węźle login (ui.wcss.pl):
+  cd ~/specedge
+  uv sync
+  # jeśli brak uv, sprawdź moduły: module avail Python
+  # i utwórz venv ręcznie:
+  #   python3 -m venv .venv && source .venv/bin/activate && pip install -e .
+
+Krok 2 — sprawdź:
+  make -C wcss check
+
+Ręczne wskazanie interpretera:
+  export WCSS_PYTHON=/pełna/ścieżka/do/python3
+EOF
+}
+
+# Resolves project Python; sets WCSS_PYTHON on success.
+wcss_resolve_python() {
+    if [[ -n "${WCSS_PYTHON:-}" && -x "${WCSS_PYTHON}" ]]; then
+        return 0
+    fi
+
+    local candidate
+    for candidate in \
+        "${WCSS_SPECEDGE_ROOT}/.venv/bin/python3" \
+        "${WCSS_SPECEDGE_ROOT}/.venv/bin/python"
+    do
+        if [[ -x "${candidate}" ]]; then
+            export WCSS_PYTHON="${candidate}"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
 wcss_check_project() {
-    if [[ ! -d "${WCSS_SPECEDGE_ROOT}/.venv" ]]; then
-        echo "ERROR: Brak .venv w ${WCSS_SPECEDGE_ROOT}. Uruchom: cd specedge && uv sync" >&2
+    if ! wcss_resolve_python; then
+        wcss_print_venv_help
         return 1
     fi
+
+    if ! "${WCSS_PYTHON}" -c "import yaml" 2>/dev/null; then
+        echo "ERROR: ${WCSS_PYTHON} nie ma modułu yaml (PyYAML)." >&2
+        echo "Uruchom: cd ~/specedge && uv sync" >&2
+        return 1
+    fi
+
+    return 0
 }
