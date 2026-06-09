@@ -42,7 +42,7 @@ setup:
 	chmod +x $(REPRO) lib/run_in_job.sh
 
 check: setup
-	@bash -c 'source lib/common.sh && wcss_check_project && echo "OK: WCSS_PYTHON=$$WCSS_PYTHON"'
+	@bash -c 'source lib/common.sh && wcss_check_project && echo "OK: WCSS_PYTHON=$$WCSS_PYTHON (collect metryk: lokalnie po rsync, polars nie działa na login node)"'
 
 # Wszystkie testy reprodukcyjne — submit 14 jobów SLURM (fazy 0–3 + 32B)
 all: setup

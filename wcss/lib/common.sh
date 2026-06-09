@@ -131,9 +131,28 @@ wcss_check_project() {
         return 1
     fi
 
+    return 0
+}
+
+wcss_print_collect_help() {
+    cat >&2 <<EOF
+ERROR: collect wymaga polars, ale import się nie powiódł na tym węźle.
+
+Na login node WCSS polars często kończy się "Illegal instruction" (stary CPU / SIMD).
+Joby SLURM działają normalnie — tylko agregacja metryk uruchamiaj lokalnie:
+
+  1. rsync results/ z Lustre na swój komputer
+  2. make -C wcss collect  (lub collect_results.py z WCSS_RESULT_ROOT lokalnie)
+
+Alternatywa: uruchom collect w interaktywnym srun na węźle LEM (nowszy CPU).
+EOF
+}
+
+wcss_check_collect() {
+    wcss_check_project || return 1
+
     if ! "${WCSS_PYTHON}" -c "import polars" 2>/dev/null; then
-        echo "ERROR: ${WCSS_PYTHON} nie ma modułu polars (wymagany przez collect)." >&2
-        echo "Uruchom: cd ~/specedge && uv sync" >&2
+        wcss_print_collect_help
         return 1
     fi
 

@@ -99,7 +99,7 @@ run_phase() {
 
 collect_results() {
     wcss_ensure_dirs
-    wcss_check_project
+    wcss_check_collect
 
     "${WCSS_PYTHON}" "${LIB_DIR}/collect_results.py" \
         --result-root "${WCSS_RESULT_ROOT}" \
