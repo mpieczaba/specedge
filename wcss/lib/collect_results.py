@@ -34,7 +34,7 @@ METRIC_FIELDS = [
 
 
 def _parse_plain_output(stdout: str) -> list[str]:
-    for line in stdout.strip().splitlines():
+    for line in stdout.splitlines():
         if "\t" in line:
             return line.split("\t")
     return []
@@ -106,23 +106,28 @@ def _run_metric(
     parts = _parse_plain_output(result.stdout)
     if not parts:
         return {"error": f"no tab-separated metrics in output: {result.stdout[:200]!r}"}
+    # Empty subset (e.g. phase-0 smoke test with a single req_idx).
+    if not any(p.strip() for p in parts):
+        return {}
+
+    # plain_text_print emits 32 tab-separated fields (0-indexed positions below).
     metrics = {
+        "tokens_per_verify_mean": parts[14] if len(parts) > 14 else "",
+        "tokens_per_verify_std": parts[15] if len(parts) > 15 else "",
         "itl_ms": parts[16] if len(parts) > 16 else "",
         "server_running_time_s": parts[17] if len(parts) > 17 else "",
         "server_cost_usd": parts[18] if len(parts) > 18 else "",
-        "generated_tokens": parts[21] if len(parts) > 21 else "",
-        "cost_efficiency_1k_per_usd": _cost_efficiency_from_dpm(parts[22])
-        if len(parts) > 22
+        "generated_tokens": parts[30] if len(parts) > 30 else "",
+        "cost_efficiency_1k_per_usd": _cost_efficiency_from_dpm(parts[31])
+        if len(parts) > 31
         else "",
-        "tokens_per_verify_mean": parts[14] if len(parts) > 14 else "",
-        "tokens_per_verify_std": parts[15] if len(parts) > 15 else "",
     }
     metrics["throughput_tok_s"] = _throughput(
         metrics["generated_tokens"], metrics["server_running_time_s"]
     )
     if method != "server_only":
-        metrics["edge_cost_usd"] = parts[20] if len(parts) > 20 else ""
         metrics["edge_running_time_s"] = parts[19] if len(parts) > 19 else ""
+        metrics["edge_cost_usd"] = parts[20] if len(parts) > 20 else ""
     else:
         metrics["edge_cost_usd"] = ""
     return metrics
