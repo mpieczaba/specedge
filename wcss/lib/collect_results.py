@@ -32,6 +32,13 @@ METRIC_FIELDS = [
 ]
 
 
+def _parse_plain_output(stdout: str) -> list[str]:
+    for line in stdout.strip().splitlines():
+        if "\t" in line:
+            return line.split("\t")
+    return []
+
+
 def _run_metric(
     project_root: Path,
     method: str,
@@ -68,9 +75,12 @@ def _run_metric(
 
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
-        return {"error": result.stderr.strip() or result.stdout.strip()}
+        err = (result.stderr or result.stdout or "unknown error").strip()
+        return {"error": err.replace("\n", " | ")[:500]}
 
-    parts = result.stdout.strip().split("\t")
+    parts = _parse_plain_output(result.stdout)
+    if not parts:
+        return {"error": f"no tab-separated metrics in output: {result.stdout[:200]!r}"}
     metrics = {
         "itl_ms": parts[16] if len(parts) > 16 else "",
         "server_running_time_s": parts[17] if len(parts) > 17 else "",

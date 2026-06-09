@@ -18,6 +18,8 @@ from metric import (  # noqa: F401
     TRANSLATION_OFFSET,
 )
 
+GPU_COST = A100_80_GPU_COST
+
 
 def main(data_folder_path: Path):
     # Find all client files and the server file
@@ -416,13 +418,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.gpu == "A100_80":
-        print("Using A100_80 GPU")
+        print("Using A100_80 GPU", file=sys.stderr)
         GPU_COST = A100_80_GPU_COST
     elif args.gpu == "A100_40":
-        print("Using A100_40 GPU")
+        print("Using A100_40 GPU", file=sys.stderr)
         GPU_COST = A100_GPU_COST
     elif args.gpu == "H100_94":
-        print("Using H100_94 GPU")
+        print("Using H100_94 GPU", file=sys.stderr)
         GPU_COST = H100_94_GPU_COST
     else:
         raise ValueError("Invalid GPU option")

@@ -625,3 +625,7 @@ def _init_inference(
     except KeyboardInterrupt:
         # Gracefully exit without printing traceback
         pass
+    finally:
+        import logging
+
+        logging.shutdown()

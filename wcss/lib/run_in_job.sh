@@ -47,13 +47,57 @@ finally:
     s.close()
 PY
         then
-            echo "gRPC server ready on port ${port} (attempt ${i})"
+            echo "gRPC port ${port} accepting connections (attempt ${i})"
             return 0
         fi
         sleep 5
     done
     echo "ERROR: gRPC server did not start on port ${port}" >&2
     return 1
+}
+
+# Port 8000 opens before the inference child finishes model load / KV prefill.
+# Clients must wait for the inference loop or Validate RPCs time out (5s).
+wait_for_server_inference() {
+    local log_file="$1"
+    local retries=360
+    local i
+    for ((i = 1; i <= retries; i++)); do
+        if [[ -f "${log_file}" ]] && grep -q "Starting inference loop" "${log_file}"; then
+            echo "Server inference loop ready (attempt ${i})"
+            return 0
+        fi
+        if (( i % 6 == 0 )); then
+            echo "Waiting for server inference loop... attempt ${i}/${retries}"
+        fi
+        sleep 10
+    done
+    echo "ERROR: server inference loop did not start within timeout" >&2
+    if [[ -f "${log_file}" ]]; then
+        echo "Last 40 lines of ${log_file}:" >&2
+        tail -40 "${log_file}" >&2 || true
+    fi
+    return 1
+}
+
+shutdown_server() {
+    local pid="$1"
+    if ! kill -0 "${pid}" 2>/dev/null; then
+        return 0
+    fi
+    echo "Stopping batch server (PID ${pid})..."
+    kill -TERM "${pid}" 2>/dev/null || true
+    local i
+    for ((i = 1; i <= 120; i++)); do
+        if ! kill -0 "${pid}" 2>/dev/null; then
+            echo "Server stopped after ${i}s"
+            return 0
+        fi
+        sleep 1
+    done
+    echo "WARN: server did not exit after SIGTERM, sending SIGKILL" >&2
+    kill -KILL "${pid}" 2>/dev/null || true
+    wait "${pid}" 2>/dev/null || true
 }
 
 RESULT_DIR=$("${WCSS_PYTHON}" -c "import json,sys; print(json.load(open(sys.argv[1]))['result_dir'])" "${RUN_META}")
@@ -73,21 +117,30 @@ case "${METHOD}" in
         ./script/server_only.sh -f "${CONFIG}"
         ;;
     specedge)
+        SERVER_LOG="${RESULT_DIR}/raw/run/server.log"
+        mkdir -p "${RESULT_DIR}/raw/run"
+
         ./script/batch_server.sh -f "${CONFIG}" &
         SERVER_PID=$!
-        trap 'kill ${SERVER_PID} 2>/dev/null || true' EXIT
+        trap 'shutdown_server "${SERVER_PID}"' EXIT
 
         wait_for_port 8000
+        wait_for_server_inference "${SERVER_LOG}"
+
         "${WCSS_PYTHON}" "${SCRIPT_DIR}/client_local.py" --config "${CONFIG}"
         CLIENT_RC=$?
 
-        kill "${SERVER_PID}" 2>/dev/null || true
-        wait "${SERVER_PID}" 2>/dev/null || true
+        shutdown_server "${SERVER_PID}"
         trap - EXIT
 
         if [[ ${CLIENT_RC} -ne 0 ]]; then
             echo "ERROR: edge clients failed with code ${CLIENT_RC}" >&2
             exit "${CLIENT_RC}"
+        fi
+
+        if [[ ! -s "${RESULT_DIR}/raw/run/server.jsonl" ]]; then
+            echo "ERROR: server.jsonl is empty after specedge run" >&2
+            exit 1
         fi
         ;;
     *)
